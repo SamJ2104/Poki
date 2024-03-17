@@ -13,24 +13,43 @@ module.exports = (req, res) => {
       });
       proxyRes.on('end', () => {
         try {
-          // Inject dark mode CSS
-          const darkModeCSS = `
-            <style>
-              body {
-                background-color: #1e1e1e;
-                color: #dcdcdc;
+          // Inject the previous JavaScript code
+          const injectedScript = `
+            <script>
+              //invert color and skip transparency value
+              function invert(str, type) {
+                var t1 = str.split("(");
+                var t2 = t1[1].split(")");
+                var t3 = t2[0].split(",");
+                t3.forEach(function(v, i) {
+                  if (i < 3) {
+                    if (type == "color")
+                      t3[i] = (255 - parseInt(v)) < 50 ? 120 : (255 - parseInt(v));
+                    else
+                      t3[i] = (255 - parseInt(v));
+                  }
+                })
+                t3 = t3.join(",");
+                return t1[0] + "(" + t3 + ")";
               }
-              /* Add more styles as needed */
-            </style>
+              
+              //invert color and backgroundcolor of every dom node
+              document.querySelectorAll('*:not([invTouch])').forEach(function(node) {
+                var style = window.getComputedStyle(node);
+                node.style.backgroundColor = invert(style.backgroundColor, "back");
+                node.style.color = invert(style.color, "color");
+                node.setAttribute("invTouch", "true");
+              });
+            </script>
           `;
           const originalBody = body.toString();
-          // Insert the dark mode CSS right after the opening <head> tag
-          const modifiedBody = originalBody.replace('<head>', `<head>${darkModeCSS}`);
+          // Insert the injected script right before the closing </body> tag
+          const modifiedBody = originalBody.replace('</body>', `${injectedScript}</body>`);
           res.setHeader('Content-Length', Buffer.byteLength(modifiedBody));
           res.write(modifiedBody);
           res.end();
         } catch (error) {
-          console.error('Error injecting dark mode CSS:', error);
+          console.error('Error injecting script:', error);
           res.writeHead(500);
           res.end();
         }
